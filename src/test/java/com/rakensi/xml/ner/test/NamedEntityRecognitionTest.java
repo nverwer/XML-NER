@@ -8,6 +8,7 @@ import java.util.Map;
 import org.greenmercury.smax.SmaxDocument;
 import org.greenmercury.smax.convert.XmlString;
 import org.junit.jupiter.api.Test;
+import org.w3c.dom.Element;
 
 import com.rakensi.xml.ner.Logger;
 import com.rakensi.xml.ner.NamedEntityRecognition;
@@ -142,6 +143,58 @@ class NamedEntityRecognitionTest
     ner.scan(document);
     output = XmlString.fromSmax(document).replaceAll("<\\?.*?\\?>", "").replaceAll("\\s*xmlns:.+?=\".*?\"", "");
     expectedOutput = "<r><fn:match id=\"RSVP\">R</fn:match><i>SVP!</i></r>";
+    assertEquals(expectedOutput, output);
+  }
+
+  private String xmlGrammarString =
+      "<grammar>\n" +
+      "  <entity id=\"♳\"><name>PET</name><name>polyethylene</name><name>terephthalate</name></entity>\n" +
+      "  <entity id=\"♴\"><name>HDPE</name><name>high-density polyethylene</name><name>polyethylene high-density</name></entity>\n" +
+      "  <entity id=\"♵\"><name>PVC</name><name>polyvinyl chloride</name><name>polyvinylchloride</name><name>vinyl</name><name>polyvinyl</name></entity>\n" +
+      "</grammar>\n";
+
+  @Test
+  void test_MatchElement_1() throws Exception
+  {
+    Element grammar = XmlString.toDomElement(xmlGrammarString);
+    Map<String, String> options = new HashMap<String, String>();
+    options.put("match-element-name", "ric");
+    options.put("match-attribute", "symbol");
+    NamedEntityRecognition ner = new NamedEntityRecognition(grammar, options, logger);
+    SmaxDocument document = XmlString.toSmax("<r>RIC for vinyl and polyethylene</r>");
+    ner.scan(document);
+    String output = XmlString.fromSmax(document).replaceAll("<\\?.*?\\?>", "").replaceAll("\\s*xmlns:.+?=\".*?\"", "");
+    String expectedOutput = "<r>RIC for <ric symbol=\"♵\">vinyl</ric> and <ric symbol=\"♳\">polyethylene</ric></r>";
+    assertEquals(expectedOutput, output);
+  }
+
+  @Test
+  void test_MatchElement_2() throws Exception
+  {
+    Element grammar = XmlString.toDomElement(xmlGrammarString);
+    Map<String, String> options = new HashMap<String, String>();
+    options.put("match-element-name", "fn:ric");
+    options.put("match-attribute", "symbol");
+    NamedEntityRecognition ner = new NamedEntityRecognition(grammar, options, logger);
+    SmaxDocument document = XmlString.toSmax("<r>RIC for vinyl and polyethylene</r>");
+    ner.scan(document);
+    String output = XmlString.fromSmax(document).replaceAll("<\\?.*?\\?>", "").replaceAll("\\s*xmlns:.+?=\".*?\"", "");
+    String expectedOutput = "<r>RIC for <fn:ric symbol=\"♵\">vinyl</fn:ric> and <fn:ric symbol=\"♳\">polyethylene</fn:ric></r>";
+    assertEquals(expectedOutput, output);
+  }
+
+  @Test
+  void test_MatchElement_3() throws Exception
+  {
+    Element grammar = XmlString.toDomElement(xmlGrammarString);
+    Map<String, String> options = new HashMap<String, String>();
+    options.put("match-element-name", "ric:image");
+    options.put("match-element-namespace-uri", "https://en.wikipedia.org/wiki/Resin_identification_code");
+    NamedEntityRecognition ner = new NamedEntityRecognition(grammar, options, logger);
+    SmaxDocument document = XmlString.toSmax("<r>RIC for vinyl and polyethylene</r>");
+    ner.scan(document);
+    String output = XmlString.fromSmax(document).replaceAll("<\\?.*?\\?>", "").replaceAll("\\s*xmlns:.+?=\".*?\"", "");
+    String expectedOutput = "<r>RIC for <ric:image id=\"♵\">vinyl</ric:image> and <ric:image id=\"♳\">polyethylene</ric:image></r>";
     assertEquals(expectedOutput, output);
   }
 

@@ -198,14 +198,7 @@ public class NamedEntityRecognition
       @Override
       public void match(CharSequence text, int start, int end, List<String> ids) {
         SmaxElement matchElement = new SmaxElement(matchElementNamespaceUri, matchElementName);
-        try
-        {
-          matchElement.setAttribute(matchAttribute, String.join("\t", ids));
-        }
-        catch (SmaxException e)
-        {
-          throw new RuntimeException("This is not supposed to happen.", e);
-        }
+        matchElement.setAttribute(matchAttribute, String.join("\t", ids));
         transformedDocument.insertMarkup(matchElement, balancing, start, end);
       }
       @Override

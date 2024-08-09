@@ -6,7 +6,7 @@
 
     <groupId>com.rakensi</groupId>
     <artifactId>XML-NER</artifactId>
-    <version>1.0.2</version>
+    <version>1.0.3</version>
 
     <name>Named Entity Recognition for XML</name>
     <description>
@@ -28,7 +28,7 @@
 
         <smax.groupId>org.greenmercury</smax.groupId>
         <smax.artifactId>SMAX</smax.artifactId>
-        <smax.version>1.0.2</smax.version>
+        <smax.version>1.0.3</smax.version>
 
     </properties>
 

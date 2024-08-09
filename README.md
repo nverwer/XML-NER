@@ -32,13 +32,13 @@ returns
 
 ```
 ner:named-entity-recognition(
-  $ner-grammar  as item()?  := (),
+  $ner-grammar  as item(),
   $options  as map(*)?  := map{}
-)  as  function(node()) as item()*
+)  as  function(item()) as node()*
 
 ```
 
-The function takes two parameters, a grammar and a `map` with options.
+The `named-entity-recognition` function takes two parameters, a grammar and a `map` with options.
 
 ### `$ner-grammar`
 
@@ -111,6 +111,15 @@ Setting case-insensitive-min-length and fuzzy-min-length to 3 or less will recog
 
 All sequences of whitespace characters will be treated like a single space, both in the grammar input and the text that is scanned for named entities.
 
+### result
+
+The function returns a `function(item()) as node()*`.
+This corresponds to the `scan(SmaxDocument)` function in an instance of `com.rakensi.xml.ner.NamedEntityRecognition`.
+
+This function is implemented by the extension packages for the various XQuery engines.
+The `item()` parameter can be a `xs:string` or an XML `node()`.
+If the parameter is an `element()`, the same element (possibly with additional nested elements for recognized entities) is returned.
+If the parameter is a `xs:string` or a `node()`, the output is a sequence of text nodes and elements for recognized entities.
 
 ## Notes
 
