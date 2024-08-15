@@ -118,8 +118,9 @@ public abstract class TrieNER
     final int length = text.length();
     StringBuilder unmatched = new StringBuilder(); // Collects unmatched characters, up to the next match.
     int nrResults = 0;
-    logger.info("TrieNER.scan start");
+    //logger.info("TrieNER.scan start");
     while (start < length) {
+      //logger.info("scanning at "+start+" / "+length);
       // Set start at the next first letter of a word.
       char c = 0;
       // A word must start with letter, digit or word-character.

@@ -16,7 +16,6 @@ import javax.xml.parsers.SAXParserFactory;
 import org.greenmercury.smax.Balancing;
 import org.greenmercury.smax.SmaxDocument;
 import org.greenmercury.smax.SmaxElement;
-import org.greenmercury.smax.SmaxException;
 import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
@@ -265,8 +264,8 @@ public class NamedEntityRecognition
           String nttid = parts[0];
           parts = parts[1].split("\\t");
           for (int i = 0; i < parts.length; ++i) {
-            String nntname = parts[i];
-            trie.put(nntname, nttid);
+            String nttname = parts[i];
+            trie.put(nttname, nttid);
           }
         }
       }
