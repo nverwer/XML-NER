@@ -117,10 +117,7 @@ public abstract class TrieNER
     int start = 0; // Starting position to search in text.
     final int length = text.length();
     StringBuilder unmatched = new StringBuilder(); // Collects unmatched characters, up to the next match.
-    int nrResults = 0;
-    //logger.info("TrieNER.scan start");
     while (start < length) {
-      //logger.info("scanning at "+start+" / "+length);
       // Set start at the next first letter of a word.
       char c = 0;
       // A word must start with letter, digit or word-character.
@@ -137,7 +134,6 @@ public abstract class TrieNER
       }
       // Scan for a match, starting at the word beginning at normalizedText[start].
       ArrayList<TrieScanner.ScanResult> results = trie.scan(normalizedOneToOneText, start, caseInsensitiveMinLength >= 0);
-      if (results != null) nrResults += results.size();
       /* Determine if the match qualifies:
        * - There is a result.
        * - If (caseInsensitiveMinLength >= 0) the result-match was case-insensitive,
@@ -206,7 +202,6 @@ public abstract class TrieNER
     } // while (start < length)
     // Output left-over characters.
     unMatched(unmatched, text, length);
-    logger.info("TrieNER.scan: "+length+" characters scanned, "+nrResults+" matches");
   }
 
   /**

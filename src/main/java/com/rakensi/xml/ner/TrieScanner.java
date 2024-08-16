@@ -550,19 +550,21 @@ public class TrieScanner {
 
   /**
    * Scan for a longest matching key in a text, starting at a specified position
-   * @param text The text to scan.
+   * @param normalizedText The text to scan. This must be normalized to trie characters.
    * @param start The starting position.
    * @param caseInsensitive Indicates that matching is case-insensitive.
    *   They are considered to be part of a word.
    * @return A collection of ScanResult which is null if there is no match.
+   * Requiring that normalizedText is already normalized, calling this function in a loop on different positions in the same text
+   * is a lot more efficient than normalizing on each scan.
    */
-  public ArrayList<ScanResult> scan(CharSequence text, int start, boolean caseInsensitive) {
-    int textLength = text.length();
+  public ArrayList<ScanResult> scan(CharSequence normalizedText, int start, boolean caseInsensitive) {
+    int textLength = normalizedText.length();
     if (root == null) {
       return null;
     }
     ArrayList<ScanResult> results =
-      root.scan(StringUtils.normalizeOneToOne(text), start, start, textLength,
+      root.scan(normalizedText, start, start, textLength,
         caseInsensitive, new StringBuilder(), new StringBuilder(), logger
       );
     return results;

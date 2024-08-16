@@ -159,7 +159,7 @@ public class StringUtils {
    * @param s
    * @return The content of {@code s} with normalized spaces.
    */
-  public static String normalizeSpaces(CharSequence s) {
+  public static CharSequence normalizeSpaces(CharSequence s) {
     if (s == null) {
       return null;
     }
@@ -178,7 +178,7 @@ public class StringUtils {
         sb.append(c);
       }
     }
-    return sb.toString();
+    return sb;
   }
 
   /**
