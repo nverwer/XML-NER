@@ -9,6 +9,9 @@ import java.util.ArrayList;
  * A node can contain multiple values, which is an extension of the usual functionality.
  * The values must be strings.
  *
+ * The keys are low ASCII, and in fact are between 0x20 && and 0x7F (inclusive).
+ * There is room to put something in the range 0x00 - 0x1F, which may be useful later.
+ *
  * @author Rakensi
  */
 public class TrieScanner {
@@ -376,7 +379,7 @@ public class TrieScanner {
    * Whitespace is acceptable, but will be converted to normal space when put into the trie or when matched.
    */
   public boolean isTrieChar(char c) {
-    return Character.isLetterOrDigit(c) || Character.isWhitespace(c) || wordChars.indexOf(c) >= 0;
+    return c < R && ( Character.isLetterOrDigit(c) || Character.isWhitespace(c) || wordChars.indexOf(c) >= 0 );
   }
 
   /**
@@ -386,7 +389,7 @@ public class TrieScanner {
    * Whitespace is acceptable, but will be converted to normal space when put into the trie or when matched.
    */
   public boolean isNonSpaceTrieChar(char c) {
-    return Character.isLetterOrDigit(c) || wordChars.indexOf(c) >= 0;
+    return c < R && ( Character.isLetterOrDigit(c) || wordChars.indexOf(c) >= 0 );
   }
 
   /**
