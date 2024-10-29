@@ -17,7 +17,6 @@ let $grammar :=
   </grammar>
 let $input :=
   <r>CO<sub>2</sub> dissolved in H<sub>2</sub>O forms a weak acid.</r>
-
 let $ner-parse := ner:named-entity-recognition($grammar, map{'match-element-name' : 'chemical'})
 return $ner-parse($input)
 ```
