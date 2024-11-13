@@ -35,6 +35,24 @@ class NamedEntityRecognitionTest
   };
 
   @Test
+  void test_Separators() throws Exception
+  {
+    String grammar =
+      "eg:1 <= e.g." + "\n" +
+      "eg:2<=e g; eg" + "\n";
+    Map<String, String> options = new HashMap<String, String>();
+    options.put("word-chars", ".");
+    options.put("entity-separator", "\\s*<=\\s*");
+    options.put("name-separator", "\\s*;\\s*");
+    NamedEntityRecognition ner = new NamedEntityRecognition(grammar, options, logger);
+    SmaxDocument document = XmlString.toSmax("<r>e.g. e g eg</r>");
+    ner.scan(document);
+    String output = XmlString.fromSmax(document).replaceAll("<\\?.*?\\?>", "").replaceAll("\\s*xmlns:.+?=\".*?\"", "");
+    String expectedOutput = "<r><fn:match id=\"eg:1\">e.g.</fn:match> <fn:match id=\"eg:2\">e g</fn:match> <fn:match id=\"eg:2\">eg</fn:match></r>";
+    assertEquals(expectedOutput, output);
+  }
+
+  @Test
   void test_FuzzyMinLength() throws Exception
   {
     String grammar =

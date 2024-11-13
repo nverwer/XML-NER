@@ -35,17 +35,19 @@ import org.xml.sax.SAXParseException;
  *       <code>id &lt;- name1 name2 ...</code>
  *       or
  *       <code>id : name1 name2 ...</code>
- *       where the names are separated by tab characters.
+ *       where the names are separated by tab characters. The separators "&lt;-", ":" and tab are defaults and can be changed.
  *       When the grammar is an element, it has the form
  *       <code>
- *         &lt;grammar>
- *           &lt;entity id="id">&lt;name>name1&lt;/name>...&lt;/entity>...
- *         &lt;/grammar>
+ *         &lt;grammar&gt;
+ *           &lt;entity id="id"&gt;&lt;name&gt;name1&lt;/name&gt;...&lt;/entity&gt;...
+ *         &lt;/grammar&gt;
  *       </code>
  *       When the grammar is a URL, it must point to a document containing the grammar as a string or XML.
  *   </li>
  *   <li>options A map with options. The following options are recognized:
  *     <ul>
+ *       <li>entity-separator A regular expression for the separator between the entity id and the names. Default is "\\s*(<-|:)\\s*"</li>
+ *       <li>name-separator A regular expression for the separator between the names. Default is "\\t".</li>
  *       <li>word-chars Characters that are significant for matching an entity name. Default is "".
  *           Letters and digits are always significant, but characters like '.' and '-' are not.
  *           A sequence of non-significant characters and/or whitespace in a text will be treated as a single space during matching.
@@ -91,9 +93,15 @@ import org.xml.sax.SAXParseException;
  */
 public class NamedEntityRecognition
 {
+  private static final String DEFAULT_ENTITY_SEPARATOR = "\\s*(<-|:)\\s*";
+  private static final String DEFAULT_NAME_SEPARATOR = "\\t";
 
   // Where to log to.
   private Logger logger;
+
+  // Separator characters for plain text grammar.
+  private String entitySeparator;
+  private String nameSeparator;
 
   // Match element.
   private String matchElementName;
@@ -163,6 +171,8 @@ public class NamedEntityRecognition
   throws Exception
   {
     this.logger = logger;
+    this.entitySeparator = getOption(options, "entity-separator", DEFAULT_ENTITY_SEPARATOR);
+    this.nameSeparator = getOption(options, "name-separator", DEFAULT_NAME_SEPARATOR);
     this.caseInsensitiveMinLength = getOption(options, "case-insensitive-min-length", -1);
     this.fuzzyMinLength = getOption(options, "fuzzy-min-length", -1);
     this.wordChars = getOption(options, "word-chars", "");
@@ -207,8 +217,14 @@ public class NamedEntityRecognition
     };
   }
 
+  public void scan(SmaxDocument document) {
+    transformedDocument = document;
+    triener.scan(document.getContent(), caseInsensitiveMinLength, fuzzyMinLength);
+  }
+
   private void readGrammar(String grammar) throws Exception
   {
+    logger.info("Reading grammar from string of length "+grammar.length());
     try (
       StringReader grammarStringReader = new StringReader(grammar);
       BufferedReader grammarReader = new BufferedReader(grammarStringReader);
@@ -221,6 +237,7 @@ public class NamedEntityRecognition
 
   private void readGrammar(URL grammar) throws Exception
   {
+    logger.info("Reading grammar from URL: "+grammar.toExternalForm());
     // First, try to parse the document that the URL points to as XML.
     if (saxParser == null) {
       SAXParserFactory  factory = SAXParserFactory.newInstance();
@@ -252,17 +269,17 @@ public class NamedEntityRecognition
         ++lineNumber;
         line = line.trim();
         if (line.length() > 0) {
-          String[] parts = line.split("\\s*(<-|:)\\s*", 2);
+          String[] parts = line.split(entitySeparator, 2);
           if (parts.length != 2) {
             throw new Exception("Bad trie syntax in line "+lineNumber+": "+line+
-                "\n\tEvery line must contain two parts separated by '<-' or ':'.");
+                "\n\tEvery line must contain two parts separated by the regular expression \""+entitySeparator+"\".");
           }
           if (parts[1].equals("")) {
             throw new Exception("Bad trie syntax in line "+lineNumber+": "+line+
                 "\n\tThe second part of a rule must not be empty).");
           }
           String nttid = parts[0];
-          parts = parts[1].split("\\t");
+          parts = parts[1].split(nameSeparator);
           for (int i = 0; i < parts.length; ++i) {
             String nttname = parts[i];
             trie.put(nttname, nttid);
@@ -285,6 +302,7 @@ public class NamedEntityRecognition
    */
   private void readGrammar(Element grammar) throws Exception
   {
+    logger.info("Reading grammar from XML element <"+grammar.getNodeName()+">");
     TrieScanner trie = triener.getTrie();
     NodeList entityNodes = grammar.getChildNodes();
     int entitiesCount = entityNodes.getLength();
@@ -303,11 +321,6 @@ public class NamedEntityRecognition
       }
     }
     logger.info("Trie: "+trie.nrKeys()+" keys, "+trie.sizeInBytes()/1048576+" megabytes");
-  }
-
-  public void scan(SmaxDocument document) {
-    transformedDocument = document;
-    triener.scan(document.getContent(), caseInsensitiveMinLength, fuzzyMinLength);
   }
 
   /**
