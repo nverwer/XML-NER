@@ -1,11 +1,14 @@
 package com.rakensi.xml.ner;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.net.URL;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -76,6 +79,7 @@ import org.xml.sax.SAXParseException;
  *           If the namespace prefix in 'match-element-name' is 'fn:', the default is 'http://www.w3.org/2005/xpath-functions'.</li>
  *       <li>match-attribute The name of the attribute on the match element that will hold the id of the matching entity.
  *           Default is 'id'.</li>
+ *       <li>cache Set to true to cache the generated trie scanner. Only trie scanners generated from grammars stored on the file system can be cached.</li>
  *     </ul>
  *   </li>
  * </ul>
@@ -122,6 +126,20 @@ public class NamedEntityRecognition
 
   // The TrieNER instance used for scanning.
   private TrieNER triener = null;
+
+  private boolean cache = false;
+
+  // Cache for trie scanners, to prevent repeated grammar compilation.
+  class TrieCacheEntry {
+    public long modified;
+    public TrieScanner trieScanner;
+    public TrieCacheEntry(TrieScanner trieScanner) {
+      this.modified = new Date().getTime();
+      this.trieScanner = trieScanner;
+    }
+  }
+  private static Map<String, TrieCacheEntry> trieCache = new HashMap<String, TrieCacheEntry>();
+
 
   // The (sub-)document that is being transformed.
   private SmaxDocument transformedDocument;
@@ -186,11 +204,16 @@ public class NamedEntityRecognition
     if (this.matchElementName.contains(":") && this.matchElementNamespaceUri == null) {
       throw new IllegalArgumentException("A match-element-namespace-uri must be defined for the match-element-name '"+this.matchElementName+"'");
     }
+    this.cache = getOption(options, "cache", false);
     initTrieNER();
   }
 
   private String getOption(Map<String, String> options, String key, String defaultValue) {
     return Optional.ofNullable(options.get(key)).orElse(defaultValue);
+  }
+
+  private boolean getOption(Map<String, String> options, String key, boolean defaultValue) {
+    return Optional.ofNullable(options.get(key)).map(v -> Boolean.parseBoolean(v)).orElse(defaultValue);
   }
 
   private int getOption(Map<String, String> options, String key, int defaultValue) {
@@ -224,7 +247,7 @@ public class NamedEntityRecognition
 
   private void readGrammar(String grammar) throws Exception
   {
-    logger.info("Reading grammar from string of length "+grammar.length());
+    logger.info("NamedEntityRecognition: Reading grammar from string of length "+grammar.length());
     try (
       StringReader grammarStringReader = new StringReader(grammar);
       BufferedReader grammarReader = new BufferedReader(grammarStringReader);
@@ -237,24 +260,36 @@ public class NamedEntityRecognition
 
   private void readGrammar(URL grammar) throws Exception
   {
-    logger.info("Reading grammar from URL: "+grammar.toExternalForm());
-    // First, try to parse the document that the URL points to as XML.
-    if (saxParser == null) {
-      SAXParserFactory  factory = SAXParserFactory.newInstance();
-      saxParser = factory.newSAXParser();
-    }
-    try {
-      saxParser.parse(grammar.toString(), new GrammarSAXHandler(triener.getTrie()));
-    } catch (SAXParseException spe) {
-      // If the document is not XML, try to parse as text.
-      try (
-        InputStream grammarStream = grammar.openStream();
-        InputStreamReader grammarStreamReader = new InputStreamReader(grammarStream);
-        BufferedReader grammarReader = new BufferedReader(grammarStreamReader);
-      ) {
-        readGrammar(grammarReader);
-      } catch (Exception e) {
-        throw new Exception("The grammar URL "+grammar+" cannot be parsed as XML ("+spe.getMessage()+") or text ("+e.getMessage()+")", e);
+    // Maybe the compiled grammar is in the cache.
+    String grammarFilePath = grammar.toString();
+    TrieCacheEntry cached = trieCache.get(grammarFilePath);
+    if (cached != null && cached.modified > new File(grammarFilePath).lastModified()) {
+      logger.info("NamedEntityRecognition: Trie scanner for ["+grammarFilePath+"] retrieved from cache.");
+      triener.setTrie(cached.trieScanner);
+    } else {
+      logger.info("NamedEntityRecognition: Reading grammar from URL ["+grammar.toExternalForm()+"]");
+      // Try to parse the document that the URL points to as XML.
+      if (saxParser == null) {
+        SAXParserFactory  factory = SAXParserFactory.newInstance();
+        saxParser = factory.newSAXParser();
+      }
+      try {
+        saxParser.parse(grammar.toString(), new GrammarSAXHandler(triener.getTrie()));
+      } catch (SAXParseException spe) {
+        // If the document is not XML, try to parse as text.
+        try (
+          InputStream grammarStream = grammar.openStream();
+          InputStreamReader grammarStreamReader = new InputStreamReader(grammarStream);
+          BufferedReader grammarReader = new BufferedReader(grammarStreamReader);
+        ) {
+          readGrammar(grammarReader);
+        } catch (Exception e) {
+          throw new Exception("The grammar URL "+grammar+" cannot be parsed as XML ("+spe.getMessage()+") or text ("+e.getMessage()+")", e);
+        }
+      }
+      if (cache && grammarFilePath.startsWith("file:/")) {
+        trieCache.put(grammarFilePath, new TrieCacheEntry(triener.getTrie()));
+        logger.info("NamedEntityRecognition: Trie scanner for ["+grammarFilePath+"] entered into cache.");
       }
     }
   }
@@ -286,7 +321,7 @@ public class NamedEntityRecognition
           }
         }
       }
-      logger.info("Trie: "+trie.nrKeys()+" keys, "+trie.sizeInBytes()/1048576+" megabytes");
+      logger.info("NamedEntityRecognition: Trie has "+trie.nrKeys()+" keys, "+trie.sizeInBytes()/1048576+" megabytes");
     } catch (IOException e) {
       throw new Exception(e);
     }
@@ -302,7 +337,7 @@ public class NamedEntityRecognition
    */
   private void readGrammar(Element grammar) throws Exception
   {
-    logger.info("Reading grammar from XML element <"+grammar.getNodeName()+">");
+    logger.info("NamedEntityRecognition: Reading grammar from XML element <"+grammar.getNodeName()+">");
     TrieScanner trie = triener.getTrie();
     NodeList entityNodes = grammar.getChildNodes();
     int entitiesCount = entityNodes.getLength();
@@ -320,7 +355,7 @@ public class NamedEntityRecognition
         }
       }
     }
-    logger.info("Trie: "+trie.nrKeys()+" keys, "+trie.sizeInBytes()/1048576+" megabytes");
+    logger.info("NamedEntityRecognition: Trie has "+trie.nrKeys()+" keys, "+trie.sizeInBytes()/1048576+" megabytes");
   }
 
   /**
