@@ -35,6 +35,22 @@ class NamedEntityRecognitionTest
   };
 
   @Test
+  void test_LongestMatch() throws Exception
+  {
+    String grammar =
+      "a <- a" + "\n" +
+      "b <- b" + "\n" +
+      "ab <- a b" + "\n";
+    Map<String, String> options = new HashMap<String, String>();
+    NamedEntityRecognition ner = new NamedEntityRecognition(grammar, options, logger);
+    SmaxDocument document = XmlString.toSmax("<r>a a b a b b</r>");
+    ner.scan(document);
+    String output = XmlString.fromSmax(document).replaceAll("<\\?.*?\\?>", "").replaceAll("\\s*xmlns:.+?=\".*?\"", "");
+    String expectedOutput = "<r><fn:match id=\"a\">a</fn:match> <fn:match id=\"ab\">a b</fn:match> <fn:match id=\"ab\">a b</fn:match> <fn:match id=\"b\">b</fn:match></r>";
+    assertEquals(expectedOutput, output);
+  }
+
+  @Test
   void test_Separators() throws Exception
   {
     String grammar =
@@ -176,6 +192,7 @@ class NamedEntityRecognitionTest
   {
     Element grammar = XmlString.toDomElement(xmlGrammarString);
     Map<String, String> options = new HashMap<String, String>();
+    options.put("word-chars", "-");
     options.put("match-element-name", "ric");
     options.put("match-attribute", "symbol");
     NamedEntityRecognition ner = new NamedEntityRecognition(grammar, options, logger);
@@ -191,6 +208,7 @@ class NamedEntityRecognitionTest
   {
     Element grammar = XmlString.toDomElement(xmlGrammarString);
     Map<String, String> options = new HashMap<String, String>();
+    options.put("word-chars", "-");
     options.put("match-element-name", "fn:ric");
     options.put("match-attribute", "symbol");
     NamedEntityRecognition ner = new NamedEntityRecognition(grammar, options, logger);
@@ -206,6 +224,7 @@ class NamedEntityRecognitionTest
   {
     Element grammar = XmlString.toDomElement(xmlGrammarString);
     Map<String, String> options = new HashMap<String, String>();
+    options.put("word-chars", "-");
     options.put("match-element-name", "ric:image");
     options.put("match-element-namespace-uri", "https://en.wikipedia.org/wiki/Resin_identification_code");
     NamedEntityRecognition ner = new NamedEntityRecognition(grammar, options, logger);

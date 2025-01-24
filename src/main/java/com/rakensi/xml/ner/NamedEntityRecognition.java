@@ -72,6 +72,8 @@ import org.xml.sax.SAXParseException;
  *           Default is -1.</li>
  *       <li>balancing The SMAX balancing strategy that is used when an element for a recognized entity is inserted.
  *           Default is "OUTER".</li>
+ *       <li>match-within-element If set to the local name (without namespace prefix) of an element, only text within elements with this name will be matched.</li>
+ *       <li>match-within-namespace If 'parse-within-element' is set, this may be set to the namespace URI of these elements.</li>
  *       <li>match-element-name The name of the element that is inserted around matched text fragments.
  *           Default is 'fn:match'.
  *       <li>match-element-namespace-uri The namespace URI of the match element.
@@ -107,6 +109,10 @@ public class NamedEntityRecognition
   private String entitySeparator;
   private String nameSeparator;
 
+  // Match within specified elements.
+  private String matchWithinElement;
+  private String matchWithinNamespace;
+
   // Match element.
   private String matchElementName;
   private String matchElementNamespaceUri;
@@ -141,8 +147,9 @@ public class NamedEntityRecognition
   private static Map<String, TrieCacheEntry> trieCache = new HashMap<String, TrieCacheEntry>();
 
 
-  // The (sub-)document that is being transformed.
+  // The (sub-)document that is being transformed, and the offset of the current scanned fragment.
   private SmaxDocument transformedDocument;
+  private int transformedFragmentOffset;
 
   // A SAX parser for parsing grammars from file.
   SAXParser saxParser = null;
@@ -197,6 +204,8 @@ public class NamedEntityRecognition
     this.noWordBefore = getOption(options, "no-word-before", "");
     this.noWordAfter = getOption(options, "no-word-after", "");
     this.balancing = getOption(options, "balancing", Balancing.OUTER);
+    this.matchWithinElement = getOption(options, "match-within-element", (String)null);
+    this.matchWithinNamespace = getOption(options, "match-within-namespace", (String)null);
     this.matchElementName = getOption(options, "match-element-name", "fn:match");
     String defaultNamespaceUri = this.matchElementName.startsWith("fn:") ? "http://www.w3.org/2005/xpath-functions" : null;
     this.matchElementNamespaceUri = getOption(options, "match-element-namespace-uri", defaultNamespaceUri);
@@ -231,7 +240,7 @@ public class NamedEntityRecognition
       public void match(CharSequence text, int start, int end, List<String> ids) {
         SmaxElement matchElement = new SmaxElement(matchElementNamespaceUri, matchElementName);
         matchElement.setAttribute(matchAttribute, String.join("\t", ids));
-        transformedDocument.insertMarkup(matchElement, balancing, start, end);
+        transformedDocument.insertMarkup(matchElement, balancing, transformedFragmentOffset+start, transformedFragmentOffset+end);
       }
       @Override
       public void noMatch(CharSequence text, int start, int end) {
@@ -240,11 +249,44 @@ public class NamedEntityRecognition
     };
   }
 
+  /**
+   * Scan a SMAX document for text fragments that match named entities.
+   * @param document
+   */
   public void scan(SmaxDocument document) {
     transformedDocument = document;
-    triener.scan(document.getContent(), caseInsensitiveMinLength, fuzzyMinLength);
+    if (matchWithinElement != null) {
+      traverseAndScan(document.getContent(), document.getMarkup());
+    } else {
+      transformedFragmentOffset = 0;
+      triener.scan(document.getContent(), caseInsensitiveMinLength, fuzzyMinLength);
+    }
   }
 
+  private void traverseAndScan(CharSequence textFragment, SmaxElement element) {
+    String elementNsURI = element.getNamespaceURI();
+    if ( matchWithinElement.equals(element.getLocalName()) &&
+         ( (matchWithinNamespace == null || matchWithinNamespace.isEmpty()) && (elementNsURI == null || elementNsURI.isEmpty()) ||
+            matchWithinNamespace.equals(element.getNamespaceURI())
+         )) {
+      int textStart = element.getStartPos();
+      int textEnd = element.getEndPos();
+      transformedFragmentOffset = textStart;
+      triener.scan(textFragment.subSequence(textStart, textEnd), caseInsensitiveMinLength, fuzzyMinLength);
+    } else if (element.hasChildNodes()) {
+      SmaxElement[] children = element.getChildren().toArray(SmaxElement[]::new);
+      for (SmaxElement child : children) {
+        traverseAndScan(textFragment, child);
+      }
+    }
+  }
+
+
+  /**
+   * Read a grammar from a string.
+   * @param grammar
+   * @throws Exception
+   */
   private void readGrammar(String grammar) throws Exception
   {
     logger.info("NamedEntityRecognition: Reading grammar from string of length "+grammar.length());
@@ -258,6 +300,11 @@ public class NamedEntityRecognition
     }
   }
 
+  /**
+   * Read a grammar from a URL.
+   * @param grammar
+   * @throws Exception
+   */
   private void readGrammar(URL grammar) throws Exception
   {
     // Maybe the compiled grammar is in the cache.
