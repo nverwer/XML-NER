@@ -9,12 +9,17 @@ import java.util.ArrayList;
  * A node can contain multiple values, which is an extension of the usual functionality.
  * The values must be strings.
  *
- * The keys are low ASCII, and in fact are between 0x20 && and 0x7F (inclusive).
- * There is room to put something in the range 0x00 - 0x1F, which may be useful later.
+ * The keys are low ASCII strings, containing characters between 0x20 and 0x7F (inclusive).
+ * There is room to put other information in the range 0x00 - 0x1F:
+ * - 0x00 is used to indicate no character.
+ * - 0x1A is used as a substitute for characters that are outside of the 0x20 - 0x7F range.
  *
  * @author Rakensi
  */
 public class TrieScanner {
+
+  private static final char noChar = 0x00; // No character, used to indicate that there is no single branch in the trie.
+  private static final char substituteChar = 0x1A; // Substitute character for characters outside of the 0x20 - 0x7F range.
 
   private String wordChars; // Characters that are considered part of a word, next to characters and digits and whitespace.
   private String noWordBefore; // May not occur immediately after a match, next to characters and digits.
@@ -51,8 +56,8 @@ public class TrieScanner {
    */
   public class Node {
     public ArrayList<String> values = null; // The values for this key, if any.
-    private Node[] next = null; // Multiple branches extending from this node.
-    private char c = 0; // Character for a single branch.
+    private Node[] next = null; // Multiple branches extending from this node, always has size R.
+    private char c = noChar; // Character for a single branch.
     private Node nextc = null; // The single branch for this character.
 
     public Node() {
@@ -68,7 +73,7 @@ public class TrieScanner {
       else {
         char[] nexts = new char[R];
         for (char c = 0; c < R; ++c) {
-          nexts[c] = (this.next[c] == null) ? '-' : c;
+          nexts[c] = (this.next[c] == null) ? '◦' : c;
         }
         return String.valueOf(nexts);
       }
@@ -92,14 +97,14 @@ public class TrieScanner {
           if (putNode.next[c] == null) putNode.next[c] = new Node();
           putNode = putNode.next[c];
         } else if (putNode.nextc != null) {
-          if (putNode.c == 0 || putNode.c == c) {
+          if (putNode.c == noChar || putNode.c == c) {
             putNode.c = c;
             putNode = putNode.nextc;
           } else {
             putNode.next = new Node[R];
             putNode.next[putNode.c] = putNode.nextc;
             putNode.next[c] = new Node();
-            putNode.c = 0;
+            putNode.c = noChar; // No single branch anymore.
             putNode.nextc = null;
             nrBigNodes++;
             putNode = putNode.next[c];
@@ -152,14 +157,14 @@ public class TrieScanner {
       if (next != null) {
         next[c] = (next[c] != null ? next[c] : new Node()).putRecursive(originalKey, key, val, d + 1);
       } else if (nextc != null) {
-        if (this.c == 0 || this.c == c) {
+        if (this.c == noChar || this.c == c) {
           this.c = c;
           nextc = nextc.putRecursive(originalKey, key, val, d + 1);
         } else {
           next = new Node[R];
           next[this.c] = nextc;
           next[c] = new Node().putRecursive(originalKey, key, val, d + 1);
-          this.c = 0;
+          this.c = noChar; // No single branch anymore.
           nextc = null;
           nrBigNodes++;
         }
@@ -379,7 +384,7 @@ public class TrieScanner {
    * Whitespace is acceptable, but will be converted to normal space when put into the trie or when matched.
    */
   public boolean isTrieChar(char c) {
-    return c < R && ( Character.isLetterOrDigit(c) || Character.isWhitespace(c) || wordChars.indexOf(c) >= 0 );
+    return Character.isWhitespace(c) || isNonSpaceTrieChar(c);
   }
 
   /**
@@ -392,7 +397,41 @@ public class TrieScanner {
     return c < R && ( Character.isLetterOrDigit(c) || wordChars.indexOf(c) >= 0 );
   }
 
-  /**
+  /** It is not clear which function is preferable: toTrieCharsSubstitutingNonTrieChars or toTrieCharsIgnoringNonTrieChars or toTrieCharsNormalizingNonTrieChars.
+   * Turn the normalized version of a string into acceptable Trie characters.
+   * Other characters are replaced by substituteChar.
+   * Whitespace is normalized; it is removed at the start and end, and collapsed in the middle.
+   * @param s
+   * @return
+   */
+  public String toTrieCharsSubstitutingNonTrieChars(CharSequence s) {
+    if (s == null) {
+      return null;
+    }
+    s = StringUtils.normalizeOneToOne(s);
+    StringBuilder sb = new StringBuilder();
+    boolean inSpace = false;
+    int n = s.length();
+    for (int i = 0; i < n; i++) {
+      char c = s.charAt(i);
+      if (Character.isWhitespace(c)) {
+        inSpace = true;
+      } else {
+        if (inSpace && sb.length() > 0) {
+          sb.append(' ');
+        }
+        inSpace = false;
+        if (isNonSpaceTrieChar(c)) {
+          sb.append(c);
+        } else {
+          sb.append(substituteChar);
+        }
+      }
+    }
+    return sb.toString();
+  }
+
+  /** It is not clear which function is preferable: toTrieCharsSubstitutingNonTrieChars or toTrieCharsIgnoringNonTrieChars or toTrieCharsNormalizingNonTrieChars.
    * Turn the normalized version of a string into acceptable Trie characters.
    * Other characters are removed.
    * Whitespace is normalized; it is removed at the start and end, and collapsed in the middle.
@@ -424,7 +463,7 @@ public class TrieScanner {
     return sb.toString();
   }
 
-  /**
+  /** It is not clear which function is preferable: toTrieCharsSubstitutingNonTrieChars or toTrieCharsIgnoringNonTrieChars or toTrieCharsNormalizingNonTrieChars.
    * Turn the normalized version of a string into acceptable Trie characters.
    * Other characters are replaced by spaces.
    * Whitespace is normalized; it is removed at the start and end, and collapsed in the middle.

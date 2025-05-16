@@ -158,6 +158,7 @@ public abstract class TrieNER
           } else if (matchedEnd != result.end) {
             throw new RuntimeException("Match ends at both "+result.end+" and "+matchedEnd);
           }
+          // Use toTrieCharsNormalizingNonTrieChars, so that sequences of non-significant characters are treated as a space.
           String onlyTrieCharsMatched = trie.toTrieCharsNormalizingNonTrieChars(text.subSequence(result.start, result.end));
           // Test caseInsensitiveMinLength. If caseInsensitiveMinLength >= 0, match result is case-insensitive, which may not be correct.
           boolean satisfiesCaseInsensitiveMinLength =

@@ -10,15 +10,17 @@ import java.text.Normalizer;
  * These utilities Are inspired by [http://www.rgagnon.com/javadetails/java-0456.html].
  *<p>
  * The methods with names that end with 'OneToOne' (normalizeOneToOne) return a String that is the same length as their input string.
- * This is important when finding named entities inside a string, using a named entity recognizer.
- * The text fragments corresponding to entity names are specified by their start and end position in the string.
+ * This is important when *finding* named entities inside a string, using a named entity recognizer.
+ * The text fragments corresponding to entity names are specified by their start and end position in the string,
+ * which must not be changed by normalization.
  * In this way, it is easy to insert markup around entity names.
  *<p>
- * The other methods (normalizeAsciiExpanding) keep more of characters the input string, but return a string that
+ * The methods with names that end with 'Expanding' (normalizeAsciiExpanding) may return a string that
  * can have a different length than the input string. This is because they expand ligatures.
  * These functions are useful for normalizing a string so that characters with diacritics are mapped to their base character,
  * ligatures are expanded, and raised or lowered characters are mapped to their 'normal' version.
- * This is typically done before putting an entity name into the trie, to make matching insensitive to diacritics..
+ * This is typically done before putting an entity name into the trie, to make matching insensitive to diacritics.
+ * This can be combined with unicode normal form NFKC, which keeps diacritics combined with their character (C means composed).
  *<p>
  * @author Rakensi
  */
@@ -43,6 +45,8 @@ public class StringUtils {
     + "\u0102\u0103\u0114\u0115\u011E\u011F\u012C\u012D\u014E\u014F\u016C\u016D\u04D0\u04D1\u04D6\u04D7\u1E1C\u1E1D\u1EB6\u1EB7"                     // breve
     + "\u00c5\u00e5\u00d8\u00f8"                                                                                                                     // Scandinavian
     + "\u008A\u008E\u009A\u009E\u009F"                                                                                                               // special
+    /* BaseX full-text (FTToken) defines additional accented characters, which are copied here. */
+    + "\u00d0\u00de\u00df\u00f0\u00fe\u0100\u0101\u0104\u0105\u0106\u0107\u0108\u0109\u010a\u010b\u010c\u010d\u010e\u010f\u0110\u0111\u0112\u0113\u0116\u0117\u0118\u0119\u011a\u011b\u011c\u011d\u0120\u0121\u0124\u0125\u0126\u0127\u0128\u0129\u012a\u012b\u012e\u012f\u0130\u0131\u0132\u0133\u0134\u0135\u0138\u0139\u013a\u013d\u013e\u013f\u0140\u0141\u0142\u0143\u0144\u0147\u0148\u0149\u014a\u014b\u014c\u014d\u0154\u0155\u0158\u0159\u015a\u015b\u015c\u015d\u0160\u0161\u0164\u0165\u0166\u0167\u0168\u0169\u016a\u016b\u016e\u016f\u0172\u0173\u0174\u0175\u0179\u017a\u017b\u017c\u017d\u017e\u01fa\u01fb\u01fc\u01fd\u01fe\u01ff\u0200\u0201\u0202\u0203\u0204\u0205\u0206\u0207\u0208\u0209\u020a\u020b\u020c\u020d\u020e\u020f\u0210\u0211\u0212\u0213\u0214\u0215\u0216\u0217\u0218\u0219\u021a\u021b\u021e\u021f\u0226\u0227\u022a\u022b\u022c\u022d\u022e\u022f\u0230\u0231\u0232\u0233"
     ;
 
   private static final String PLAIN_ASCII_DIACRITICAL =
@@ -57,6 +61,7 @@ public class StringUtils {
     + "AaEeGgIiOoUuAaIiEeAa"   // breve
     + "AaOo"                   // Scandinavian
     + "SZszY"                  // special
+    + "DdsddAaAaCcCcCcCcDdDdEeEeEeEeGgGgHhHhIiIiIiIiIiJjkLlLlLlLlNnNnnNnOoRrRrSsSsSsTtTtUuUuUuUuWwZzZzZzAaAaOoAaAaEeEeIiIiOoOoRrRrUuUuSsTtHhAaOoOoOoOoIi" // BaseX
     ;
 
   /* Punctuation characters tables. */
@@ -67,6 +72,12 @@ public class StringUtils {
     + "\u0093\u0094\u201C\u201D"                                // "
     + "\u0096\u0097\u2010\u2011\u2012\u2013\u2014\u2015\u2212"  // -
     + "\u00A0\u1680\u180E\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u200B\u202F\u205F\u3000\uFEFF" // spaces
+    + "\u2044"                                                  // fraction slash
+    + "\u0300\u0301"                                            // combining '
+    + "\u0308\u030B\u030F"                                      // combining "
+    + "\u0303"                                                  // combining ~
+    + "\u0304\u0305"                                            // combining -
+    + "\u030A"                                                  // combining o
     ;
 
   private static final String PLAIN_ASCII_PUNCTUATION =
@@ -74,64 +85,36 @@ public class StringUtils {
     + "\"\"\"\""
     + "---------"
     + "                   "
+    + "/"
+    + "''"
+    + "\"\"\""
+    + "~"
+    + "--"
+    + "o"
     ;
 
-  private static final String POST_NFKD_UNICODE =
-      "\u2044";
+  // TODO: Replace "\u0020\u0301" with "'", "\u0020\u0301" with "'", ..., and "\u0020\u030A" with "o". See https://www.compart.com/en/unicode/block/U+0300
 
-  private static final String POST_NFKD_ASCII =
-      "/";
-
-  /* Ligatures characters table for ligatures that are not handled by NFKD normalization. Only convert these when the string length may change. */
+  /* Ligatures characters table for ligatures that are not handled by NFKC normalization. */
   private static final String LIGATURES =
-      "\u008C\u009C\u0152\u0153\u00C6\u00E6'";
+    "\u008C\u009C\u0152\u0153\u00C6\u00E6";
 
+  /* Only convert using these when the string length may change. */
   private static final String[] SPLIT_LIGATURES = new String[] {
-      "OE", "oe", "OE", "oe", "AE", "ae"
+    "OE", "oe", "OE", "oe", "AE", "ae"
+  };
+
+  /* Convert using these when the string length must stay the same. COmpatible with BaseX full-text, but not used. */
+  private static final String[] ONE_TO_ONE_LIGATURES = new String[] {
+      "O", "o", "O", "o", "A", "a"
   };
 
 
   /**
-   * Check if a character is in the low (7-bit) ASCII range, and not a punctuation character.
-   * @param c
-   * @return if the character is in the low ASCII range
-   */
-  public static boolean isLowAsciiWithoutPunctuation(char c) {
-    return (Character.isLetterOrDigit(c) || c == ' ') && c >= 0x20 && c < 0x7F;
-  }
-
-  /**
-   * Convert all characters in a string to ASCII codes 0x20 - 0x7E and remove punctuation.
-   * All white space will be normalized to normal space (0x20).
-   * Only letters and digits and normal spaces are kept, other characters are removed.
-   * Therefore, the length of the string may change.
-   * @param s the inputSource string
-   * @return a string derived from {@code s}, with only low ASCII characters.
-   */
-  public static CharSequence convertToLowAsciiWithoutPunctuation(CharSequence s) {
-    if (s == null) {
-      return null;
-    }
-    StringBuilder sb = new StringBuilder();
-    int n = s.length();
-    for (int i = 0; i < n; i++) {
-      char c = s.charAt(i);
-      int pos = UNICODE_DIACRITICAL.indexOf(c);
-      if (Character.isWhitespace(c)) {
-        sb.append(' ');
-      } else if (pos >= 0) {
-        sb.append(PLAIN_ASCII_DIACRITICAL.charAt(pos));
-      } else if (isLowAsciiWithoutPunctuation(c)) {
-        sb.append(c);
-      }
-    }
-    return sb;
-  }
-
-  /**
    * Convert all characters in a string to ASCII codes 0x20 - 0x7E.
-   * The number of characters in the string will not change. Therefore we cannot use unicode NFKD normalization.
-   * All white space will be normalized to normal space (0x20).
+   * The number of characters in the string will not change.
+   * Therefore we cannot use unicode NFKC normalization or ligature expansion.
+   * All white space characters will be normalized to normal space (0x20).
    * Characters that have no low ASCII equivalent are replaced by defaultChar.
    * @param s the inputSource string
    * @param defaultChar
@@ -152,8 +135,6 @@ public class StringUtils {
         sb.append(PLAIN_ASCII_DIACRITICAL.charAt(pos));
       } else if ((pos = UNICODE_PUNCTUATION.indexOf(c)) >= 0) {
         sb.append(PLAIN_ASCII_PUNCTUATION.charAt(pos));
-      } else if ((pos = POST_NFKD_UNICODE.indexOf(c)) >= 0) {
-        sb.append(POST_NFKD_ASCII.charAt(pos));
       } else if (c >= 0x20 && c < 0x80) {
         sb.append(c);
       } else {
@@ -163,19 +144,47 @@ public class StringUtils {
     return sb;
   }
 
+
   /**
-   * Normalize a string and keep the number of characters the same.
-   * For example, the ellipsis symbol is not expanded into '...'.
+   * Normalize ligatures in the ASCII character set (0x20 - 0xFF) by expanding them into their constituent characters.
+   * @param s
+   * @return The content of {@code s} with expanded ligatures.
+   */
+  private static CharSequence expandASCIILigatures(CharSequence s) {
+    if (s == null) {
+      return null;
+    }
+    StringBuilder sb = new StringBuilder();
+    int n = s.length();
+    for (int i = 0; i < n; i++) {
+      char c = s.charAt(i);
+      int ligatureIndex = LIGATURES.indexOf(c);
+      if (ligatureIndex >= 0) {
+        sb.append(SPLIT_LIGATURES[ligatureIndex]);
+      } else {
+        sb.append(c);
+      }
+    }
+    return sb;
+
+  }
+
+
+  /**
+   * Normalize a string.
+   * The number of characters in the string will not change.
    * Converts all characters in a string to ASCII codes 0x20 - 0x7E.
    * All white space will be normalized to normal space (0x20).
+   * Ligatures are not expanded.
    * This method uses the '\u0080' character as a substitute for characters that have no normalized equivalent.
-   * When put into the trie, '\u0080' will be thrown away.
+   * When put into the trie, '\u0080' will be replaced by the substitute character.
    * @param s the inputSource string
    * @return a normalized version of {@code s} with the same number of characters.
    */
   public static CharSequence normalizeOneToOne(CharSequence s) {
     return convertToLowAsciiOneToOne(s, '\u0080');
   }
+
 
   /**
    * Normalize a character to ASCII
@@ -186,9 +195,46 @@ public class StringUtils {
     return normalizeOneToOne(Character.toString(c)).charAt(0);
   }
 
+
+  /**
+   * Normalize a string to ASCII, expanding ligatures.
+   * The string length may change.
+   * The getBytes("ascii") ensures only ASCII characters are retained.
+   * @param s the inputSource string
+   * @return a normalized string derived from {@code s}.
+   */
+  public static CharSequence normalizeAsciiExpanding(CharSequence s) {
+    CharSequence sn = Normalizer.normalize(s, Normalizer.Form.NFKC); // Expands most ligatures.
+    sn = expandASCIILigatures(sn);
+    sn = normalizeOneToOne(sn);
+    return sn;
+  }
+
+
+  /**
+   * Normalize a character to ASCII, possibly expanding into multiple characters.
+   * @param c the inputSource character.
+   * @return a string resulting from the normalization of c
+   */
+  public static CharSequence normalizeAsciiExpanding(char c) {
+    return normalizeAsciiExpanding(Character.toString(c));
+  }
+
+
+  /**
+   * Check if a character is in the low (7-bit) ASCII range, and not a punctuation character.
+   * @param c
+   * @return if the character is in the low ASCII range
+   */
+  public static boolean isLowAsciiWithoutPunctuation(char c) {
+    return (Character.isLetterOrDigit(c) || c == ' ') && c >= 0x20 && c < 0x7F;
+  }
+
+
   /**
    * Normalize spaces by trimming spaces at the beginning and end of {@code s},
    * and coalescing multiple spaces within {@code s}.
+   * The string length may change.
    * @param s
    * @return The content of {@code s} with normalized spaces.
    */
@@ -212,66 +258,6 @@ public class StringUtils {
       }
     }
     return sb;
-  }
-
-  /**
-   * Normalize ligatures in the ASCII character set (0x20 - 0xFF) by expanding them into their constituent characters.
-   * As a bonus, we also do some post-NFKD normalization (should be separate, but this is faster).
-   * @param s
-   * @return The content of {@code s} with expanded ligatures.
-   */
-  public static CharSequence expandASCIILigatures(CharSequence s) {
-    if (s == null) {
-      return null;
-    }
-    StringBuilder sb = new StringBuilder();
-    int n = s.length();
-    for (int i = 0; i < n; i++) {
-      char c = s.charAt(i);
-      int ligatureIndex = LIGATURES.indexOf(c);
-      if (ligatureIndex >= 0) {
-        sb.append(SPLIT_LIGATURES[ligatureIndex]);
-      } else {
-        int postNFKDNormalizeIndex = POST_NFKD_UNICODE.indexOf(c);
-        if (postNFKDNormalizeIndex >= 0) {
-          sb.append(POST_NFKD_ASCII.charAt(postNFKDNormalizeIndex));
-        } else {
-          sb.append(c);
-        }
-      }
-    }
-    return sb;
-
-  }
-
-  /**
-   * Normalize a string to ASCII. The string length may change.
-   * Inspired by [http://stackoverflow.com/a/2097224/1021892].
-   * The getBytes("ascii") ensures only ASCII characters are retained.
-   * For ligatures, see [http://stackoverflow.com/questions/7171377/separating-unicode-ligature-characters].
-   * It seems that NFKD is most useful for us, as it splits off most diacritical marks. [http://www.unicode.org/reports/tr15/]
-   * @param s the inputSource string
-   * @return a normalized string derived from {@code s}.
-   */
-  public static CharSequence normalizeAsciiExpanding(CharSequence s) {
-    try {
-      String sn = Normalizer.normalize(s, Normalizer.Form.NFKD);
-      // Remove diacritical marks after NFKD. The getBytes("ascii") will lose Cyrillic, which may be bad.
-      String sr = new String(sn.replaceAll("[\\p{IsMn}\\p{IsLm}\\p{IsSk}]+", "").getBytes("ascii"), "ascii");
-      CharSequence sre = expandASCIILigatures(sr);
-      return sre;
-    } catch (UnsupportedEncodingException e) {
-      throw new RuntimeException(e); // This should never happen, unless "ascii" ceases to exist.
-    }
-  }
-
-  /**
-   * Normalize a character to ASCII, possibly expanding into multiple characters.
-   * @param c the inputSource character.
-   * @return a string resulting from the normalization of c
-   */
-  public static CharSequence normalizeAsciiExpanding(char c) {
-    return normalizeAsciiExpanding(Character.toString(c));
   }
 
 }
