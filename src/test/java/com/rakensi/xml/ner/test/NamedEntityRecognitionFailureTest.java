@@ -65,7 +65,7 @@ class NamedEntityRecognitionFailureTest
 
   /**
    * Test case for https://github.com/nverwer/XML-NER/issues/1
-   * This test fails, and shows that the problem is in the generated grammar for local aliases.
+   * This test fails before the fix for this issue.
    */
   @Test
   void test_NoProgress_2() throws Exception
@@ -76,7 +76,7 @@ class NamedEntityRecognitionFailureTest
     SmaxDocument document = XmlString.toSmax("<r>BW (a: (...)</r>");
     ner.scan(document);
     String output = removeProcessingInstructionsAndNamespaces(XmlString.fromSmax(document));
-    String expectedOutput = "<r>BW (a: <fn:match id=\"id0\">(...</fn:match>)</r>";
+    String expectedOutput = "<r>BW (a: (...)</r>";
     assertEquals(expectedOutput, output);
   }
 

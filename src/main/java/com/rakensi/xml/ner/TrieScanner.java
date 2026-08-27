@@ -240,6 +240,23 @@ public class TrieScanner {
      * @param current The position in `text` that holds the next character to scan.
      * @param end The position one beyond the last position in `text`.
      * @param caseInsensitive Indicates that matching is case-insensitive.
+     * @return The results of the current scan. This may be null if there are no results.
+     * Whitespace must be normalized in {@code normalizedText}.
+     * All sequences of whitespace characters will be matched like a single space.
+     * If the scan is case-insensitive there can be multiple results with different matched texts.
+     * The matched texts may differ in case, and in whitespace.
+     */
+    public ArrayList<ScanResult> scan(CharSequence normalizedText, int start, int current, int end, boolean caseInsensitive, Logger logger) {
+      return scan(normalizedText, start, current, end, caseInsensitive, new StringBuilder(), new StringBuilder(), logger);
+    }
+
+    /**
+     * Find the longest substring in `text`, starting at `start` that matches a key in the trie.
+     * @param normalizedText The normalized version of the text that we are scanning.
+     * @param start The position in `text` from where the current scan starts.
+     * @param current The position in `text` that holds the next character to scan.
+     * @param end The position one beyond the last position in `text`.
+     * @param caseInsensitive Indicates that matching is case-insensitive.
      * @param matchedText Fragment of the input text that has actually matched. This corresponds to normalizedText[start,current).
      * @param matchedKey The exact key in the trie that has been matched so far.
      * @return The results of the current scan. This may be null if there are no results.
@@ -251,8 +268,9 @@ public class TrieScanner {
     public ArrayList<ScanResult> scan(CharSequence normalizedText, int start, int current, int end,
         boolean caseInsensitive, StringBuilder matchedText, StringBuilder matchedKey, Logger logger
     ) {
+      // This method is called recursively for branches in the trie, until there is no more input.
       if (current < end) {
-        // Look for a longer match starting at the next not-yet-matched character.
+        // Look for a longer match than what we already have in matchedText, starting at the next not-yet-matched character.
         // Within this block, matchedText may be temporarily extended.
         char ch = normalizedText.charAt(current);
         // NextPos is what current will become if there is a match.
@@ -526,18 +544,21 @@ public class TrieScanner {
   }
 
   /**
-   * Inserts the key-value pair into the trie, overwriting the old value
-   * with the new value if the key is already in the trie.
+   * Inserts the key-value pair into the trie, overwriting the old value with the new value if the key is already in the trie.
    * @param originalKey the key
    * @param val the value
    */
   public void put(String originalKey, String val) {
     String key = toTrieCharsIgnoringNonTrieChars(originalKey);
-    if (root == null) {
-      root = new Node();
+    if (key.length() > 0) {
+      if (root == null) {
+        root = new Node();
+      }
+      root.putIterative(originalKey, key, val);
+      //root.putRecursive(originalKey, key, val, 0);
+    } else {
+      logger.warning("The named entity \""+originalKey+"\" for \""+val+"\" cannot be put into the trie, because it does not contain any valid trie characters.");
     }
-    root.putIterative(originalKey, key, val);
-    //root.putRecursive(originalKey, key, val, 0);
   }
 
   /**
@@ -605,10 +626,7 @@ public class TrieScanner {
     if (root == null) {
       return null;
     }
-    ArrayList<ScanResult> results =
-      root.scan(normalizedText, start, start, textLength,
-        caseInsensitive, new StringBuilder(), new StringBuilder(), logger
-      );
+    ArrayList<ScanResult> results = root.scan(normalizedText, start, start, textLength, caseInsensitive, logger);
     return results;
   }
 
