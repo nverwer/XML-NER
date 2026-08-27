@@ -242,7 +242,7 @@ public class TrieScanner {
      * @param caseInsensitive Indicates that matching is case-insensitive.
      * @param matchedText Fragment of the input text that has actually matched. This corresponds to normalizedText[start,current).
      * @param matchedKey The exact key in the trie that has been matched so far.
-     * @return The results of the current scan. This may be null if there are no results
+     * @return The results of the current scan. This may be null if there are no results.
      * Whitespace must be normalized in {@code normalizedText}.
      * All sequences of whitespace characters will be matched like a single space.
      * If the scan is case-insensitive there can be multiple results with different matched texts.

@@ -39,8 +39,10 @@ class NamedEntityRecognitionFailureTest
     return xml.replaceAll("<\\?.*?\\?>", "").replaceAll("\\s*xmlns:.+?=\".*?\"", "");
   }
 
+
   /**
    * Test case for https://github.com/nverwer/XML-NER/issues/1
+   * This test succeeds.
    */
   @Test
   void test_NoProgress_1() throws Exception
@@ -57,6 +59,24 @@ class NamedEntityRecognitionFailureTest
     ner.scan(document);
     String output = removeProcessingInstructionsAndNamespaces(XmlString.fromSmax(document));
     String expectedOutput = "<r>x <fn:match id=\"BWBR0002656\">BW</fn:match> (omdat als het al een schuldvordering is in juridische zin, die niet toekomt aan de nalatenschappen, maar aan de verkoper: (...) x</r>";
+    assertEquals(expectedOutput, output);
+  }
+
+
+  /**
+   * Test case for https://github.com/nverwer/XML-NER/issues/1
+   * This test fails, and shows that the problem is in the generated grammar for local aliases.
+   */
+  @Test
+  void test_NoProgress_2() throws Exception
+  {
+    String grammar = "id0 <- (..." + "\n";
+    Map<String, String> options = new HashMap<String, String>();
+    NamedEntityRecognition ner = new NamedEntityRecognition(grammar, options, logger);
+    SmaxDocument document = XmlString.toSmax("<r>BW (a: (...)</r>");
+    ner.scan(document);
+    String output = removeProcessingInstructionsAndNamespaces(XmlString.fromSmax(document));
+    String expectedOutput = "<r>BW (a: <fn:match id=\"id0\">(...</fn:match>)</r>";
     assertEquals(expectedOutput, output);
   }
 
