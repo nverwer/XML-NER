@@ -34,6 +34,11 @@ class NamedEntityRecognitionTest
     }
   };
 
+  private String removeProcessingInstructionsAndNamespaces(String xml)
+  {
+    return xml.replaceAll("<\\?.*?\\?>", "").replaceAll("\\s*xmlns:.+?=\".*?\"", "");
+  }
+
   @Test
   void test_LongestMatch() throws Exception
   {
@@ -45,7 +50,7 @@ class NamedEntityRecognitionTest
     NamedEntityRecognition ner = new NamedEntityRecognition(grammar, options, logger);
     SmaxDocument document = XmlString.toSmax("<r>a a b a b b</r>");
     ner.scan(document);
-    String output = XmlString.fromSmax(document).replaceAll("<\\?.*?\\?>", "").replaceAll("\\s*xmlns:.+?=\".*?\"", "");
+    String output = removeProcessingInstructionsAndNamespaces(XmlString.fromSmax(document));
     String expectedOutput = "<r><fn:match id=\"a\">a</fn:match> <fn:match id=\"ab\">a b</fn:match> <fn:match id=\"ab\">a b</fn:match> <fn:match id=\"b\">b</fn:match></r>";
     assertEquals(expectedOutput, output);
   }
@@ -63,7 +68,7 @@ class NamedEntityRecognitionTest
     NamedEntityRecognition ner = new NamedEntityRecognition(grammar, options, logger);
     SmaxDocument document = XmlString.toSmax("<r>e.g. e g eg</r>");
     ner.scan(document);
-    String output = XmlString.fromSmax(document).replaceAll("<\\?.*?\\?>", "").replaceAll("\\s*xmlns:.+?=\".*?\"", "");
+    String output = removeProcessingInstructionsAndNamespaces(XmlString.fromSmax(document));
     String expectedOutput = "<r><fn:match id=\"eg:1\">e.g.</fn:match> <fn:match id=\"eg:2\">e g</fn:match> <fn:match id=\"eg:2\">eg</fn:match></r>";
     assertEquals(expectedOutput, output);
   }
@@ -83,7 +88,7 @@ class NamedEntityRecognitionTest
     NamedEntityRecognition ner = new NamedEntityRecognition(grammar, options, logger);
     SmaxDocument document = XmlString.toSmax("<r>A   A  e.g. e g eg  B A B B B C</r>");
     ner.scan(document);
-    String output = XmlString.fromSmax(document).replaceAll("<\\?.*?\\?>", "").replaceAll("\\s*xmlns:.+?=\".*?\"", "");
+    String output = removeProcessingInstructionsAndNamespaces(XmlString.fromSmax(document));
     String expectedOutput = "<r><fn:match id=\"1\">A   A</fn:match>  <fn:match id=\"eg2\">e.g</fn:match>. <fn:match id=\"eg2\">e g</fn:match> <fn:match id=\"eg1&#9;eg3\">eg</fn:match>  <fn:match id=\"1\">B A</fn:match> <fn:match id=\"2\">B B</fn:match> <fn:match id=\"3\">B C</fn:match></r>";
     assertEquals(expectedOutput, output);
   }
@@ -102,13 +107,13 @@ class NamedEntityRecognitionTest
     // test case-insensitive-min-length
     SmaxDocument document = XmlString.toSmax("<r>Do the right thing.</r>");
     ner.scan(document);
-    String output = XmlString.fromSmax(document).replaceAll("<\\?.*?\\?>", "").replaceAll("\\s*xmlns:.+?=\".*?\"", "");
+    String output = removeProcessingInstructionsAndNamespaces(XmlString.fromSmax(document));
     String expectedOutput = "<r>Do the right thing.</r>";
     assertEquals(expectedOutput, output);
     // test fuzzy-min-length
     document = XmlString.toSmax("<r>C.F. Gauss was a German mathematician.</r>");
     ner.scan(document);
-    output = XmlString.fromSmax(document).replaceAll("<\\?.*?\\?>", "").replaceAll("\\s*xmlns:.+?=\".*?\"", "");
+    output = removeProcessingInstructionsAndNamespaces(XmlString.fromSmax(document));
     expectedOutput = "<r>C.F. Gauss was a German mathematician.</r>";
     assertEquals(expectedOutput, output);
   }
@@ -123,13 +128,13 @@ class NamedEntityRecognitionTest
     // test case-insensitive-min-length
     SmaxDocument document = XmlString.toSmax("<r>Do the right thing.</r>");
     ner.scan(document);
-    String output = XmlString.fromSmax(document).replaceAll("<\\?.*?\\?>", "").replaceAll("\\s*xmlns:.+?=\".*?\"", "");
+    String output = removeProcessingInstructionsAndNamespaces(XmlString.fromSmax(document));
     String expectedOutput = "<r>Do <fn:match id=\"THE\">the</fn:match> right thing.</r>";
     assertEquals(expectedOutput, output);
     // test fuzzy-min-length
     document = XmlString.toSmax("<r>C.F. Gauss was a German mathematician.</r>");
     ner.scan(document);
-    output = XmlString.fromSmax(document).replaceAll("<\\?.*?\\?>", "").replaceAll("\\s*xmlns:.+?=\".*?\"", "");
+    output = removeProcessingInstructionsAndNamespaces(XmlString.fromSmax(document));
     expectedOutput = "<r><fn:match id=\"CF\">C.F</fn:match>. Gauss was a German mathematician.</r>";
     assertEquals(expectedOutput, output);
   }
@@ -145,7 +150,7 @@ class NamedEntityRecognitionTest
     // test without word-chars
     SmaxDocument document = XmlString.toSmax("<r>Put an r.s.v.p. at the end.</r>");
     ner.scan(document);
-    String output = XmlString.fromSmax(document).replaceAll("<\\?.*?\\?>", "").replaceAll("\\s*xmlns:.+?=\".*?\"", "");
+    String output = removeProcessingInstructionsAndNamespaces(XmlString.fromSmax(document));
     String expectedOutput = "<r>Put an <fn:match id=\"RSVP\">r.s.v.p</fn:match>. at the end.</r>";
     assertEquals(expectedOutput, output);
     // test with word-chars
@@ -153,7 +158,7 @@ class NamedEntityRecognitionTest
     ner = new NamedEntityRecognition(grammar, options, logger);
     document = XmlString.toSmax("<r>Put an r.s.v.p. at the end.</r>");
     ner.scan(document);
-    output = XmlString.fromSmax(document).replaceAll("<\\?.*?\\?>", "").replaceAll("\\s*xmlns:.+?=\".*?\"", "");
+    output = removeProcessingInstructionsAndNamespaces(XmlString.fromSmax(document));
     expectedOutput = "<r>Put an r.s.v.p. at the end.</r>";
     assertEquals(expectedOutput, output);
   }
@@ -167,7 +172,7 @@ class NamedEntityRecognitionTest
     // default balancing is OUTER
     SmaxDocument document = XmlString.toSmax("<r>R<i>SVP!</i></r>");
     ner.scan(document);
-    String output = XmlString.fromSmax(document).replaceAll("<\\?.*?\\?>", "").replaceAll("\\s*xmlns:.+?=\".*?\"", "");
+    String output = removeProcessingInstructionsAndNamespaces(XmlString.fromSmax(document));
     String expectedOutput = "<r><fn:match id=\"RSVP\">R<i>SVP!</i></fn:match></r>";
     assertEquals(expectedOutput, output);
     // test balancing INNER
@@ -175,7 +180,7 @@ class NamedEntityRecognitionTest
     ner = new NamedEntityRecognition(grammar, options, logger);
     document = XmlString.toSmax("<r>R<i>SVP!</i></r>");
     ner.scan(document);
-    output = XmlString.fromSmax(document).replaceAll("<\\?.*?\\?>", "").replaceAll("\\s*xmlns:.+?=\".*?\"", "");
+    output = removeProcessingInstructionsAndNamespaces(XmlString.fromSmax(document));
     expectedOutput = "<r><fn:match id=\"RSVP\">R</fn:match><i>SVP!</i></r>";
     assertEquals(expectedOutput, output);
   }
@@ -198,7 +203,7 @@ class NamedEntityRecognitionTest
     NamedEntityRecognition ner = new NamedEntityRecognition(grammar, options, logger);
     SmaxDocument document = XmlString.toSmax("<r>RIC for vinyl and polyethylene</r>");
     ner.scan(document);
-    String output = XmlString.fromSmax(document).replaceAll("<\\?.*?\\?>", "").replaceAll("\\s*xmlns:.+?=\".*?\"", "");
+    String output = removeProcessingInstructionsAndNamespaces(XmlString.fromSmax(document));
     String expectedOutput = "<r>RIC for <ric symbol=\"♵\">vinyl</ric> and <ric symbol=\"♳\">polyethylene</ric></r>";
     assertEquals(expectedOutput, output);
   }
@@ -214,7 +219,7 @@ class NamedEntityRecognitionTest
     NamedEntityRecognition ner = new NamedEntityRecognition(grammar, options, logger);
     SmaxDocument document = XmlString.toSmax("<r>RIC for vinyl and polyethylene</r>");
     ner.scan(document);
-    String output = XmlString.fromSmax(document).replaceAll("<\\?.*?\\?>", "").replaceAll("\\s*xmlns:.+?=\".*?\"", "");
+    String output = removeProcessingInstructionsAndNamespaces(XmlString.fromSmax(document));
     String expectedOutput = "<r>RIC for <fn:ric symbol=\"♵\">vinyl</fn:ric> and <fn:ric symbol=\"♳\">polyethylene</fn:ric></r>";
     assertEquals(expectedOutput, output);
   }
@@ -230,7 +235,7 @@ class NamedEntityRecognitionTest
     NamedEntityRecognition ner = new NamedEntityRecognition(grammar, options, logger);
     SmaxDocument document = XmlString.toSmax("<r>RIC for vinyl and polyethylene</r>");
     ner.scan(document);
-    String output = XmlString.fromSmax(document).replaceAll("<\\?.*?\\?>", "").replaceAll("\\s*xmlns:.+?=\".*?\"", "");
+    String output = removeProcessingInstructionsAndNamespaces(XmlString.fromSmax(document));
     String expectedOutput = "<r>RIC for <ric:image id=\"♵\">vinyl</ric:image> and <ric:image id=\"♳\">polyethylene</ric:image></r>";
     assertEquals(expectedOutput, output);
   }

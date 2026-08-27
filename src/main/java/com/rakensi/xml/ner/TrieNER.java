@@ -3,6 +3,14 @@ package com.rakensi.xml.ner;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * A base class for Named Entity Recognition using a trie data structure.
+ * In addition to the trie lookup provided by {@code TrieScanner}, this class
+ * scans complete text, applies word-boundary and case/fuzzy matching rules,
+ * and reports matched and unmatched spans through abstract callback methods.
+ * Implementing classes must provide the methods for handling matched and unmatched text.
+ * The trie used for lookup is implemented in the {@code TrieScanner} class.
+ */
 public abstract class TrieNER
 {
 
@@ -151,11 +159,13 @@ public abstract class TrieNER
           if (matchedStart < 0) {
             matchedStart = result.start;
           } else if (matchedStart != result.start) {
+            // If this happens, it indicates a serious programming error. Therefore it must not be caught.
             throw new RuntimeException("Match starts at both "+result.start+" and "+matchedStart);
           }
           if (matchedEnd < 0) {
             matchedEnd = result.end;
           } else if (matchedEnd != result.end) {
+            // If this happens, it indicates a serious programming error. Therefore it must not be caught.
             throw new RuntimeException("Match ends at both "+result.end+" and "+matchedEnd);
           }
           // Use toTrieCharsNormalizingNonTrieChars, so that sequences of non-significant characters are treated as a space.
@@ -172,6 +182,7 @@ public abstract class TrieNER
             result.matchedText.toLowerCase().equals(result.matchedKey.toLowerCase());
           if (satisfiesCaseInsensitiveMinLength && satisfiesFuzzyMinLength) { // This is a correct match.
             if (start == result.end) {
+              // If this happens, it indicates a serious programming error. Therefore it must not be caught.
               throw new RuntimeException("No progress matching from '"+text.subSequence(result.start, text.length())+"'");
             }
             // Add ids that are not already present.
